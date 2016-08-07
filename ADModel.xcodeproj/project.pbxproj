@@ -15,6 +15,8 @@
 		1633296D1D5021A10027BE35 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 1633296B1D5021A10027BE35 /* LaunchScreen.storyboard */; };
 		163329781D5021A10027BE35 /* ADModelTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 163329771D5021A10027BE35 /* ADModelTests.m */; };
 		163329831D5021A10027BE35 /* ADModelUITests.m in Sources */ = {isa = PBXBuildFile; fileRef = 163329821D5021A10027BE35 /* ADModelUITests.m */; };
+		163329931D5022ED0027BE35 /* ADClassInfo.m in Sources */ = {isa = PBXBuildFile; fileRef = 163329921D5022ED0027BE35 /* ADClassInfo.m */; };
+		163329971D507FF40027BE35 /* NSObject+ADModel.m in Sources */ = {isa = PBXBuildFile; fileRef = 163329961D507FF40027BE35 /* NSObject+ADModel.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -51,6 +53,11 @@
 		1633297E1D5021A10027BE35 /* ADModelUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ADModelUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		163329821D5021A10027BE35 /* ADModelUITests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ADModelUITests.m; sourceTree = "<group>"; };
 		163329841D5021A10027BE35 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		163329911D5022ED0027BE35 /* ADClassInfo.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ADClassInfo.h; sourceTree = "<group>"; };
+		163329921D5022ED0027BE35 /* ADClassInfo.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = ADClassInfo.m; sourceTree = "<group>"; };
+		163329941D507F080027BE35 /* ADModel.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ADModel.h; sourceTree = "<group>"; };
+		163329951D507FF40027BE35 /* NSObject+ADModel.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSObject+ADModel.h"; sourceTree = "<group>"; };
+		163329961D507FF40027BE35 /* NSObject+ADModel.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSObject+ADModel.m"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -101,6 +108,7 @@
 		1633295C1D5021A10027BE35 /* ADModel */ = {
 			isa = PBXGroup;
 			children = (
+				163329901D5021D00027BE35 /* ADModel */,
 				163329601D5021A10027BE35 /* AppDelegate.h */,
 				163329611D5021A10027BE35 /* AppDelegate.m */,
 				163329631D5021A10027BE35 /* ViewController.h */,
@@ -138,6 +146,18 @@
 				163329841D5021A10027BE35 /* Info.plist */,
 			);
 			path = ADModelUITests;
+			sourceTree = "<group>";
+		};
+		163329901D5021D00027BE35 /* ADModel */ = {
+			isa = PBXGroup;
+			children = (
+				163329911D5022ED0027BE35 /* ADClassInfo.h */,
+				163329921D5022ED0027BE35 /* ADClassInfo.m */,
+				163329941D507F080027BE35 /* ADModel.h */,
+				163329951D507FF40027BE35 /* NSObject+ADModel.h */,
+				163329961D507FF40027BE35 /* NSObject+ADModel.m */,
+			);
+			path = ADModel;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -202,6 +222,7 @@
 		163329521D5021A10027BE35 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
+				CLASSPREFIX = AD;
 				LastUpgradeCheck = 0730;
 				ORGANIZATIONNAME = "王奥东";
 				TargetAttributes = {
@@ -273,6 +294,8 @@
 				163329651D5021A10027BE35 /* ViewController.m in Sources */,
 				163329621D5021A10027BE35 /* AppDelegate.m in Sources */,
 				1633295F1D5021A10027BE35 /* main.m in Sources */,
+				163329971D507FF40027BE35 /* NSObject+ADModel.m in Sources */,
+				163329931D5022ED0027BE35 /* ADClassInfo.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
