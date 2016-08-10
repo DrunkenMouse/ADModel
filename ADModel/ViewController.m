@@ -192,8 +192,136 @@
  
  至此Json转Model分析完毕。撒花~~~~~~~~
  
- 
- 
-
- 
  */
+
+ /*
+  //meta 元素
+  + (instancetype)metaWithClassInfo:(ADClassInfo *)classInfo propertyInfo:(ADClassPropertyInfo *)propertyInfo generic:(Class)generic
+  support pseudo generic class with protocol name
+  支持假的generic class通过协议名
+  generic class自己写的类
+  如果generic不存在(genericMapper[propertyInfo.name])且PropertyInfo.protocols存在
+  遍历propertyInfo信息的所有protocols,将其通过UTF-8编码后转换为class类型
+  若转换成功则generic值为此类，结束遍历
+  创建一个_ADModelPropertyMeta 对象meta，用于保存propertyInfo里的name、type、propertyInfo自身与generic
+  如果meta ->_type是object类型，就通过自定义方法ADClassGetNSType根据propertyInfo.cls设置meta->_nsType值，否则就通过ADEncodingTypeIsCNumber根据meta->_type设置meta->_isCNumber值
+  如果meta->_type是一个ADEncodingTypeStruct类型值，声明一个NSSet对象，一个一次执行。
+  一次执行内部创建一个NSMutableSet *set集合添加了32位与64位下的size、point、Rect、AffineTransform、EdgeInsets、Offset值类型并设置给types
+  而后判断若types包含propertyInfo.typeEncoding则设置meta->_isStructAvailableForKeyedArchiver = YES
+  保存propertyInfo.cls为meta->_cls
+  如果generic有值或meta->_cls有值并且meta->_nsType是NSUnknown类型，就保存meta->_hasCustomClassFromDictionary值为响应是否成功。
+  其余部分千篇一律，没啥好说的。其中instancesRespondToSelector： 是判断类的实例对象能否响应方法，如果能就保存相应的操作。如果meta->_getter与_setter都存在就判断meta->_type是否为可KVC操作的类型。 最后返回meta。
+  —(BOOL)ad_modelSetWithDictionary:(NSDictionary *)dic
+  通过一个key-value字典设置调用者的属性
+  参数：dic  一个Key-Value字典映射到调用者property,字典中任何一对无效的Key-Value都将被忽视
+  描述  dictionary中的Key将被映射到调用者的property name 而这个value将设置给property.
+  如果value类型与property类型不匹配，这个方法将试图转换这个value基于以下这些值：
+  返回  转换是否成功
+  Json转Model最后一步所调用的方法中的最后一步，现在我们就来解析一下。
+  内部会先判断若字典不存在，或字典内部值为空则返回NO
+  如果字典存在且内部有值但不是字典类型也返回NO
+  于是就确定字典存在且内部有值属于NSDictionary类型，则先去获取model类的元素缓存通过 [_ADModelMeta metaWithClass:object_getClass(self)]；临时存储在modelMeta中
+  如果modelMeta中的keyMappedCount为0代表缓存的元素数为0则返回NO
+  如果自身有响应方法_hasCustomWillTransformFromDictionary(在model转换前被命名,返回修改的字典)，就让自身的代理去响应此方法，将字典传过去并将返回值覆盖自身，如果覆盖后字典不是NSDictionary类型就返回NO
+  创建一个结构体ModelSetContext，初始化是0，内部存储有三个函数指针，分别代表modelMeta(模型元素)，model(自身)，dictionary(字典dic)
+  如果modelMeta中存储的_keyMappedCount大于等于dic中值的个数
+  就执行 CFDictionaryApplyFunction((CFDictionaryRef)dic, ModelSetWithDictionaryFunction, &context);
+  这里需要讲下这个CFDictionaryApplyFunction的作用及其三个参数
+  CFDictionaryApplyFunction 对所有键值执行同一个方法
+  @function CFDictionaryApplyFunction调用一次函数字典中的每个值。
+  @param 字典。如果这个参数不是一个有效的CFDictionary,行为是未定义的。
+  @param 调用字典中每一个值执行一次这个方法。如果这个参数不是一个指针指向一个函数的正确的原型,行为是未定义的。
+  @param 一个用户自定义的上下文指针大小的值，通过第三个参数作用于这个函数，另有没使用此函数的。如果上下文不是预期的应用功能，则这个行为未定义。
+  第三个参数的意思，感觉像是让字典所有的键值去执行完方法后，保存在这个上下文指针(如自定义结构体)的指针(指向一个地址，所以自定义的结构体要用&取地址符)所指向的地址，也就是自定义的结构体中。
+  也就是dic里面的键值对全部执行完参数2的方法后保存在参数3中。
+  其中参数2是自定义方法ModelSetWithDictionaryFunction，关于此方法
+  static void ModelSetWithDictionaryFunction(const void *_key, const void *_value, void * _context)
+  对于字典的函数应用，设置key-value配对给model
+  参数 _key        不应该是nil,NSString
+  参数 _value      不应该是nil
+  参数 _context    _context.modelMeta 和 _context.model 不应该是nil
+  表示是一个静态的无返回值的C函数，接收参数为不可变的函数指针key，不可变的函数指针value，不可变的函数指针_context
+  方法内部会先声明一个ModelSetContext结构体指针context保存传过来的_context
+  方法中用到了很多__unsafe__unretained修饰符。
+  __unsafe_unretained 指针所指向的地址即使已经被释放没有值了，依旧会指向，如同野指针一样，weak/strong这些则会被置为nil。一般应用于iOS 4与OS X  Snow Leopard(雪豹)中，因为iOS 5以上才能使用weak。
+  __unsafe_unretained与weak一样，不能持有对象，也就是对象的引用计数不会加1
+  unsafe_unretained修饰符以外的 strong/ weak/ autorealease修饰符保证其指定的变量初始化为nil。同样的，附有 strong/ weak/ _autorealease修饰符变量的数组也可以保证其初始化为nil。
+  autorealease(延迟释放,给对象添加延迟释放的标记,出了作用域之后，会被自动添加到"最近创建的"自动释放池中)
+  为什么使用unsafe_unretained?
+  作者回答：在 ARC 条件下，默认声明的对象是 strong 类型的，赋值时有可能会产生 retain/release 调用，如果一个变量在其生命周期内不会被释放，则使用 unsafe_unretained 会节省很大的开销。
+  网友提问： 楼主的偏好是说用unsafe_unretained来代替weak的使用，使用后自行解决野指针的问题吗？
+  作者回答：关于 unsafe_unretained 这个属性，我只提到需要在性能优化时才需要尝试使用，平时开发自然是不推荐用的。
+  以下就简称un。
+  将context中的modelMeta通过桥接转化为ADModelMeta对象并用un修饰的_ADModelMeta对象meta保存。
+  将传过来的函数指针Key通过桥接转换为id对象并以此为Key，通过meta—>__mapper 取出key对应的值保存在un修饰的_ADModelPropertyMeta对象中。
+  将context中的model通过桥接转换为id对象并保存在一个un修饰的id对象model中
+  然后以propertyMeta为while判断条件，若其存在则为真，如果其存在并且存储有_setter方法，则通过自定义静态函数方法ModelSetValueForProperty取出model中其对应的value值。
+  static void ModelSetValueForProperty方法，接收三个参数，__unsafe_unretained id model,
+  __unsafe_unretained id value, __unsafe_unretained _ADModelPropertyMeta *meta
+  如果传过来的property是C类型，就通过自定义方法ADNSNumberCreateFromID分析出一个数值。
+  ADNSNumberCreateFromID一个静态的force_inline（代码中有解释，内容过多不赘述）修饰的返回值为NSNumber指针(意义通常为NSNumber对象，再加一个指针就是NSNumber对象数组)，参数为__unsafe_unretained id value
+  方法内部声明了三个属性，一个NSCharacterSet(Unicode字符，常用于NSString、NSScanner处理)，一个字典，一个一次执行
+  在一次执行内部，NSCharacterSet通过Range初始化，dic初始化中将正确、不正确、空的常用类型都进行了封装。
+  而后判断若传过来的value不存在，或value为空返回nil，若value为NSNumber类型则直接返回value，若是NSString类型则先创建一个NSNumber *num初始化为dic[value]，先判断取出的值是否为NO，若是则再判断取出的值是否为空，如果是则返回nil，如果不是则直接返回num，num应为@(YES)即为1。
+  而若num值为NO，则将value强转为NSString类型，然后通过刚才定义的dot在其内部查询字符 ‘  .  ’ 若查询得到则创建一个值不可变的字符数组接收强转后并UTF-8编码后的value值。
+  如果强转后没有值则返回nil，如果有值则atof处理(将字符数组转化为数字，而字符串需要UTF-8编码后才能转为字符数组。其实字符串可以直接doubleValue转换，但大神用这种方法应该是效率快吧)
+  若处理后的结果num，使用isnan(值是无穷大或无穷小的不确定值)或isinf(值是无限循环)判断，若有一个成立返回nil，否则将num包装成一个对象返回。
+  如果不包含，则直接将value通过UTF-8编码成一个字符数组，若编码后没值则返回nil 有值就通过atoll转换后返回( long long atoll(const char *nptr); 把字符串转换成长长整型数（64位）)
+  如果value不是NSNumber也不是NSString类型就直接返回nil
+  回到函数ModelSetValueForProperty中，我们已经获取了num值，而后调用自定义静态内联无返回值的函数ModelSetNumberToProperty
+  函数ModelSetNumberToProperty (__unsafe_unretained id model, __unsafe_unretained NSNumber *num, __unsafe_unretained _ADModelPropertyMeta *meta)
+  设置数字给property
+  描述 调用者(caller 来访者)应对这个参数保持强引用在这个函数返回之前
+  参数 model 不应该是nil
+  参数 num 可以是nil
+  参数 meta 不应该是nil，meta.isCNumber应该是YES,meta.setter不应该是Nil
+  方法内部使用了大量的objc_msgSend，这里简单说下
+  objc_msgSend OC消息传递机制中选择子发送的一种方式，代表是当前对象发送且没有结构体返回值
+  选择子简单说就是@selector()，OC会提供一张选择子表供其查询，查询得到就去调用，查询不到就添加而后查询对应的实现函数。通过_class_lookupMethodAndLoadCache3(仅提供给派发器用于方法查找的函数)，其内部会调用lookUpImpOrForward方法查找，查找之后还会有初始化枷锁缓存之类的操作，详情请自行搜索，就不赘述了。
+  这里的意思是，通过objc_msgSend给强转成id类型的model对象发送一个选择子meta，选择子调用的方法所需参数为一个bool类型的值num.boolValue
+  再通俗点就是让对象model去执行方法meta->_setter,方法所需参数是num.bollValue
+  再通俗点：((void (*)(id, SEL, bool))(void *) objc_msgSend) 一位一个无返回值的函数指针，指向id的SEL方法，SEL方法所需参数是bool类型，使用objc_msgSend完成这个id调用SEL方法传递参数bool类型，(void *)objc_msgSend为什么objc_msgSend前加一个(void *)呢？我查了众多资料，众多。最后终于皇天不负有心人有了个结果，是为了避免某些错误，比如model对象的内存被意外侵占了、model对象的isa是一个野指针之类的。要是有大牛能说明白，麻烦再说下。而((id)model, meta->_setter, num.boolValue）则一一对应前面的id,SEL,bool
+  再通俗点。。你找别家吧。。
+  switch遍历meta->_type，如果是ADEncodingTypeBool类型，就让model对象执行方法meta—>_setter，将num.boolValue作为参数发送过去。
+  如果是Int8类型就让对象执行方法meta—>_setter，将num.charValue强转为(int8_t)类型发过去
+  如果是UInt8(无符号的Int8类型)同上，其余同上一直到Int64类型，为什么？因为int64代表此时的num值特别长，长到你需要判断一下传过来的num值是不是NSDecimalNumber类型(NSDecimalNumber数字精确，其值确定后不可修改，是NSNumber的子类)
+  如果是float、double、long double类型，在对num得值转换后需要判断其是否是无穷大或无穷小或无限循环的，如果是就令值为0再去执行同样的操作
+  如果num有值就创建一个[num class]用来保存这个num
+  如果meta不是C number类型，就判断是否为meta—>_nsType是否有值，如果有值就判断value是否为空值，空值就调用objc_msgSend，传参数为nil，否则就Switch判断meta—>_nsType值。
+  如果是NSString或NSMutableString类型就判断value是否为NSString类型，如果是就再判断meta—>_nsType是否为NSString类型，如果都是则调用objc_msgSend将value作为参数发过去，如果meta—>_nsType不是则将其value强转成NSString再.mutableCopy后作为参数发过去。
+  如果Value不是则依次判断是否为NSNumber、NSData、NSURL或NSAttributedString，如果满足则在判断meta—>_nsType是否为ADEncodingTypeNSString，如果是就value转换相应的值后作为参数传递，如果不是就多进行一步.mutableCopy操作，NSData是个例外。
+  meta—>_nsType如果是ADEncodingTypeNSValue、ADEncodingTypeNSNumber、ADEncodingTypeNSDecimalNumber，则依旧是判断meta—>_nsType类型，难点已经描述，这些就是千篇一律了。如果meta—>_nsType没有值就声明一个Bool值isNull保存value是否为kCFNull的结果，而后switch遍历meta—>_type枚举值。
+  其中说一下strcmp(比较两个字符串)
+  strcmp(const char string1, const char string2);
+  比较字符串string1和string2大小.
+  返回值< 0, 表示string1小于string2;
+  返回值为0, 表示string1等于string2;
+  返回值> 0, 表示string1大于string2.
+  方法结束返回到ModelSetWithDictionaryFunction，while循环中会不变的通过propertyMeta = propertyMeta—>_next改变propertyMeta的值直至为空跳出while循环则此时方法结束。
+  回到ad_modelSetWithDictionary中会发现余下的操作也是一样的。
+  于是此方法结束，至此son转Model结束。
+  怎么样，是不是还有点迷？还有点乱？好像自己还什么都不理解一样？
+  没事，自己穿针引线多来几回就行了。我平常学习一个动画效果有时候都要好几个来回，更何况YYModel这种大作、只是再一次来回时你会感受到，什么叫一马平川仿似行云流水。
+  
+  */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -141,11 +141,13 @@ static force_inline NSNumber *ADNSNumberCreateFromID(__unsafe_unretained id valu
             const char *cstring = ((NSString *)value).UTF8String;
             if (!cstring) return nil;
             double num = atof(cstring);
+//          isnan(值是无穷大或无穷小的不确定值)或isinf(值是无限循环)
             if (isnan(num) || isinf(num)) return nil;
             return @(num);
         } else {
             const char *cstring = ((NSString *)value).UTF8String;
             if (!cstring) return nil;
+//          long long atoll(const char *nptr); 把字符串转换成长长整型数（64位）
             return @(atoll(cstring));
         }
     }
@@ -422,15 +424,16 @@ static force_inline id ADValueForMultiKeys(__unsafe_unretained NSDictionary *dic
 
 @implementation _ADModelPropertyMeta
 //meta 元素
+// support pseudo generic class with protocol name
+// 支持假的generic class通过协议名
+// generic class自己写的类
 + (instancetype)metaWithClassInfo:(ADClassInfo *)classInfo propertyInfo:(ADClassPropertyInfo *)propertyInfo generic:(Class)generic {
     
-    // support pseudo generic class with protocol name
-    //    支持假的generic class通过协议名
-    //    generic class自己写的类
-    //如果自定义class不存在但协议信息存在protocols
+  
+    //如果自定义class不存在且Property信息存在protocols
     if (!generic && propertyInfo.protocols) {
-        //遍历协议信息的所有protocols,将其通过UTF-8编码后转换为class类型
-        //若转换成功则generic值为此类
+        //遍历propertyInfo信息的所有protocols,将其通过UTF-8编码后转换为class类型
+        //若转换成功则generic值为此类,结束遍历
         for (NSString *protocol in propertyInfo.protocols) {
             Class cls = objc_getClass(protocol.UTF8String);
            
@@ -829,15 +832,18 @@ static force_inline id ADValueForMultiKeys(__unsafe_unretained NSDictionary *dic
     static dispatch_semaphore_t lock;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
+        
         cache = CFDictionaryCreateMutable(CFAllocatorGetDefault(), 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
         lock = dispatch_semaphore_create(1);
     });
     dispatch_semaphore_wait(lock, DISPATCH_TIME_FOREVER);
+    //第一次进来是没有，但第二次不就有了~
     _ADModelMeta *meta = CFDictionaryGetValue(cache, (__bridge const void *)(cls));
    
     dispatch_semaphore_signal(lock);
     //如果model元素不存在，或model元素缓存需要更新
     if (!meta || meta -> _classInfo.needUpdate) {
+        //重新创建meta
         meta = [[_ADModelMeta alloc] initWithClass:cls];
         if (meta) {
             dispatch_semaphore_wait(lock, DISPATCH_TIME_FOREVER);
@@ -929,6 +935,13 @@ static force_inline NSNumber *ModelCreateNumberFromProperty(__unsafe_unretained 
  */
 static force_inline void ModelSetNumberToProperty(__unsafe_unretained id model, __unsafe_unretained NSNumber *num, __unsafe_unretained _ADModelPropertyMeta *meta) {
     switch (meta->_type & ADEncodingTypeMask) {
+//            objc_msgSend OC消息传递机制中选择子发送的一种方式，代表是当前对象发送且没有结构体返回值
+//            选择子简单说就是@selector()，OC会提供一张选择子表供其查询，查询得到就去调用，查询不到就添加而后查询对应的实现函数。通过_class_lookupMethodAndLoadCache3(仅提供给派发器用于方法查找的函数)，其内部会调用lookUpImpOrForward方法查找，查找之后还会有初始化枷锁缓存之类的操作，详情请自行搜索，就不赘述了。
+//            这里的意思是，通过objc_msgSend给强转成id类型的model对象发送一个选择子meta，选择子调用的方法所需参数为一个bool类型的值num.boolValue
+//            再通俗点就是让对象model去执行方法meta->_setter,方法所需参数是num.bollValue
+//            再通俗点：((void (*)(id, SEL, bool))(void *) objc_msgSend) 一位一个无返回值的函数指针，指向id的SEL方法，SEL方法所需参数是bool类型，使用objc_msgSend完成这个id调用SEL方法传递参数bool类型，(void *)objc_msgSend为什么objc_msgSend前加一个(void *)呢？我查了众多资料，众多。最后终于皇天不负有心人有了个结果，是为了避免某些错误，比如model对象的内存被意外侵占了、model对象的isa是一个野指针之类的。要是有大牛能说明白，麻烦再说下。
+//            而((id)model, meta->_setter, num.boolValue）则一一对应前面的id,SEL,bool
+//            再通俗点。。你找别家吧。。
         case ADEncodingTypeBool: {
             ((void (*)(id, SEL, bool))(void *) objc_msgSend)((id)model, meta->_setter, num.boolValue);
         } break;
@@ -958,6 +971,7 @@ static force_inline void ModelSetNumberToProperty(__unsafe_unretained id model, 
             }
         } break;
         case ADEncodingTypeUInt64: {
+//            NSDecimalNumber数字精确，其值确定后不可修改，是NSNumber的子类
             if ([num isKindOfClass:[NSDecimalNumber class]]) {
                 ((void (*)(id, SEL, int64_t))(void *) objc_msgSend)((id)model, meta->_setter, (int64_t)num.stringValue.longLongValue);
             } else {
@@ -1013,7 +1027,6 @@ __unsafe_unretained id value, __unsafe_unretained _ADModelPropertyMeta *meta) {
                 case ADEncodingTypeNSMutableString: {
                     if ([value isKindOfClass:[NSString class]]) {
                         if (meta->_nsType == ADEncodingTypeNSString) {
-#pragma mark - - - - - - - - - -
 //  objc_msgSend，这个函数将消息接收者和方法名作为基础参数。消息发送给一个对象时，objc_msgSend通过对象的isa指针获得类的结构体，先在Cache里找，找到就执行，没找到就在分发列表里查找方法的selector，没找到就通过objc_msgSend结构体中指向父类的指针找到父类，然后在父类分发列表找，直到root class（NSObject）。
 //  在64位下，直接使用objc_msgSend一样会引起崩溃，必须进行一次强转
 //  ((void(*)(id, SEL,int))objc_msgSend)(self, @selector(doSomething:), 0);
@@ -1199,9 +1212,7 @@ __unsafe_unretained id value, __unsafe_unretained _ADModelPropertyMeta *meta) {
                         if (meta->_nsType == ADEncodingTypeNSSet) {
                             ((void (*)(id, SEL, id))(void *) objc_msgSend)((id)model, meta->_setter, valueSet);
                         } else {
-                            ((void (*)(id, SEL, id))(void *) objc_msgSend)((id)model,
-                                                                           meta->_setter,
-                                                                           ((NSSet *)valueSet).mutableCopy);
+                            ((void (*)(id, SEL, id))(void *) objc_msgSend)((id)model, meta->_setter, ((NSSet *)valueSet).mutableCopy);
                         }
                     }
                 } // break; commented for code coverage in next line
@@ -1327,6 +1338,18 @@ typedef struct {
 static void ModelSetWithDictionaryFunction(const void *_key, const void *_value, void * _context) {
     
     ModelSetContext *context = _context;
+    
+//      __unsafe_unretained 指针所指向的地址即使已经被释放没有值了，依旧会指向，如同野指针一样，weak/strong这些则会被置为nil。一般应用于iOS 4与OS X  Snow Leopard(雪豹)中，因为iOS 5以上才能使用weak。
+//    
+//      __unsafe_unretained与weak一样，不能持有对象，也就是对象的引用计数不会加1
+//    
+//    unsafe_unretained修饰符以外的 strong/ weak/ autorealease修饰符保证其指定的变量初始化为nil。同样的，附有 strong/ weak/ _autorealease修饰符变量的数组也可以保证其初始化为nil。
+//    
+//    autorealease(延迟释放,给对象添加延迟释放的标记,出了作用域之后，会被自动添加到"最近创建的"自动释放池中)
+//    为什么使用unsafe_unretained?
+//    作者回答：在 ARC 条件下，默认声明的对象是 strong 类型的，赋值时有可能会产生 retain/release 调用，如果一个变量在其生命周期内不会被释放，则使用 unsafe_unretained 会节省很大的开销。
+//    网友提问： 楼主的偏好是说用unsafe_unretained来代替weak的使用，使用后自行解决野指针的问题吗？
+//    作者回答：关于 unsafe_unretained 这个属性，我只提到需要在性能优化时才需要尝试使用，平时开发自然是不推荐用的。
     __unsafe_unretained _ADModelMeta *meta = (__bridge _ADModelMeta *)(context -> modelMeta);
     __unsafe_unretained _ADModelPropertyMeta *propertyMeta = [meta->_mapper objectForKey:(__bridge id)(_key)];
     __unsafe_unretained id model = (__bridge id)(context->model);
@@ -1755,7 +1778,9 @@ static NSString *ModelDescription(NSObject *model) {
 //参数：json   Json包含的类型可以是NSDictionary、NSString、NSData
 //返回:通过json创建的新的对象，如果解析错误就返回为空
 +(instancetype)ad_modelWithJSON:(id)json{
+    //将json转换成字典
     NSDictionary *dic = [self _ad_dictionaryWithJSON:json];
+    //通过字典转换成所需的实例
     return [self ad_modelWithDictionary:dic];
 }
 
@@ -1764,7 +1789,7 @@ static NSString *ModelDescription(NSObject *model) {
  这个方法是安全的
  参数:dictionary 一个key-value字典映射到列子的属性
  字典中任何一对无效的key-value都将被忽视
- 返回一个新的粒子通过字典创建的，如果解析失败返回为nil
+ 返回一个新的列子通过字典创建的，如果解析失败返回为nil
  描述:字典中的key将映射到接收者的property name
  而值将设置给这个Property，如果这个值类型与property不匹配
  这个方法将试图转变这个值基于这些结果：
@@ -1775,7 +1800,9 @@ static NSString *ModelDescription(NSObject *model) {
     if (![dictionary isKindOfClass:[NSDictionary class]]) return nil;
     
     Class cls = [self class];
+    //_ADModelMeta保存调用者class信息
     _ADModelMeta *modelMeta = [_ADModelMeta metaWithClass:cls];
+    
     if (modelMeta->_hasCustomClassFromDictionary) {
         cls = [cls modelCustomClassForDictionary:dictionary] ?: cls;
     }
@@ -1824,6 +1851,14 @@ static NSString *ModelDescription(NSObject *model) {
     context.dictionary = (__bridge void *)(dic);
     
     if (modelMeta->_keyMappedCount >= CFDictionaryGetCount((CFDictionaryRef)dic)) {
+
+//        CFDictionaryApplyFunction 对所有键值执行同一个方法
+//        @function CFDictionaryApplyFunction调用一次函数字典中的每个值。
+//        @param 字典。如果这个参数不是一个有效的CFDictionary,行为是未定义的。
+//        @param 调用字典中每一个值执行一次这个方法。如果这个参数不是一个指针指向一个函数的正确的原型,行为是未定义的。
+//        @param 一个用户自定义的上下文指针大小的值，通过第三个参数作用于这个函数，另有没使用此函数的。如果上下文不是预期的应用功能，则这个行为未定义。
+//        第三个参数的意思，感觉像是让字典所有的键值去执行完方法后，保存在这个上下文指针(如自定义结构体)的指针(指向一个地址，所以自定义的结构体要用&取地址符)所指向的地址，也就是自定义的结构体中。如何保存那？就是这个上下文也会传到参数2中。
+//        也就是dic里面的键值对全部执行完参数2的方法后保存在参数3中,其中参数3也会传到参数2的函数中。
 
         CFDictionaryApplyFunction((CFDictionaryRef)dic, ModelSetWithDictionaryFunction, &context);
         if (modelMeta->_keyPathPropertyMetas) {
