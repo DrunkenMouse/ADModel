@@ -194,6 +194,15 @@
  
  */
 
+
+
+/**
+ 
+    Json转model后半部分:
+ 
+ */
+
+
  /*
   //meta 元素
   + (instancetype)metaWithClassInfo:(ADClassInfo *)classInfo propertyInfo:(ADClassPropertyInfo *)propertyInfo generic:(Class)generic
@@ -306,8 +315,226 @@
   */
 
 
+/**
+ 
+ 
+    总结：
+ 
+ */
 
 
+/**
+ 
+ + (nullable instancetype)ad_modelWithJSON:(id)json;
+ 通过json创建的新的对象，如果解析错误就返回为空,是NSObject的类方法，创建时以NSObject为类创建一个对象。
+ 
+ + (nullable instancetype)ad_modelWithDictionary:(NSDictionary *)dictionary;
+ 创建并返回一个新的对象通过参数的key-value字典，是NSObject类方法
+ 字典中的key将映射到接收者的property name
+ 而值将设置给这个Property，如果这个值类型与property不匹配
+ 这个方法将试图转变这个值基于这些结果:
+ `NSString` or `NSNumber` -> c number, such as BOOL, int, long, float, NSUInteger...
+ `NSString` -> NSDate, parsed with format "yyyy-MM-dd'T'HH:mm:ssZ", "yyyy-MM-dd HH:mm:ss" or "yyyy-MM-dd".
+ `NSString` -> NSURL.
+ `NSValue` -> struct or union, such as CGRect, CGSize, ...
+ `NSString` -> SEL, Class.
+ 
+ 
+ - (BOOL)ad_modelSetWithJSON:(id)json;
+ 通过一个json生成一个对象，对象是调用者的类生成，会根据类中的变量设置对应的值
+ json中任何无效的数据都将被忽视
+ 参数：json 一个关于NSDictionary,NSString,NSData的json对象将映射到调用者的property
+ 返回：是否成功
+ 
+ - (BOOL)ad_modelSetWithDictionary:(NSDictionary *)dic;
+ 通过一个key-value字典设置调用者的属性，对象是调用者的类生成，会根据类中的变量设置对应的值
+ 参数：dic  一个Key-Value字典映射到调用者property,字典中任何一对无效的Key-Value都将被忽视
+ 描述  dictionary中的Key将被映射到调用者的property name 而这个value将设置给property.
+ 如果value类型与property类型不匹配，这个方法将试图转换这个value基于以下这些值：
+ 返回  转换是否成功
+ 
+ - (nullable id)ad_modelToJSONObject;
+ 产生一个json对象通过调用者的变量生成，是模型转Json
+ 返回一个NSDictionary或NSArray的json对象，如果解析失败返回一个Nil
+ 了解更多消息观看[NSJSONSerialization isValidJSONObject]
+ 描述：任何无效的property都将被忽视
+ 如果调用者是NSArray,NSDictionary或NSSet,他将转换里面的对象为json对象
+ 
+ - (nullable NSData *)ad_modelToJSONData;
+ 创建一个 json字符串二进制数据，通过调用者的变量，是模型转Json字符串二进制数据
+ 返回一个json string's data,如果解析失败返回为空
+ 描述：任何无效的property都将被忽视
+ 如果调用者是一个NSArray,NSDictionary或NSSet,它也将转换内部对象为一个Json字符串
+ 
+ 
+ 
+ - (nullable NSString *)ad_modelToJSONString;
+ 创建一个json 字符串通过调用者的变量，是模型转Json字符串
+ 返回一个json string,如果错误产生返回一个nil
+ 描述 任何无效的property都将被忽视
+ 如果调用者是NSArray,NSDictionary或NSSet,它也将转换内部对象为一个json string
+ 
+ 
+ 
+ - (nullable id)ad_modelCopy;
+ copy一个对象通过调用者的properties，是一个对象方法，简单说就是copy调用者的变量与变量值和get、set方法后返回copy后的对象
+ 返回一个copy的对象，如果解析失败则返回为nil
+ 
+ 
+ 
+ - (void)ad_modelEncodeWithCoder:(NSCoder *)aCoder;
+ 将调用者的变量进行编码
+ 参数 aCoder 一个对象档案
+ 
+ 
+ 
+ - (id)ad_modelInitWithCoder:(NSCoder *)aDecoder;
+ 通过一个decoder解码成对象的变量
+ 参数 aDecoder 一个对象档案
+ 返回 调用者自己
+ 
+ 
+ 
+ - (NSUInteger)ad_modelHash;
+ 通过调用者Property获取到一个哈希Code
+ 返回 hashCode
+ 
+ 
+ - (BOOL)ad_modelIsEqual:(id)model;
+ 比较变量比较调用者和另一个对象是否相同
+ 参数 model 另一个对象
+ 返回 如果两个对象相同则返回YES 否则为NO
+ 
+ 
+ 
+ - (NSString *)ad_modelDescription;
+ 描述方法为基于属性的Debug目的(Debug模式中基于属性的描述方法)
+ 返回一个字符串描述调用者的内容
+ 
+ 
+ 
+ + (nullable NSArray *)ad_modelArrayWithClass:(Class)cls json:(id)json;
+ 通过一个json-array创建并返回一个数组，数组里面存放都是对象，对象是cls通过json里面的字典与自身变量的映射生成的。
+ 这个方法是安全的
+ 参数:cls array中的对象类
+ 参数:json 一个json array 关于"NSArray","NSString"或"NSData"
+ 列子:[{"name","Mary"},{name:"Joe”}]，cls里面的name属性值为Mary或Joe,生成的对象全部保存到一个数组里返回。
+ 返回一个数组,如果解析错误则返回nil
+ 
+ 
+ 
+ + (nullable NSDictionary *)ad_modelDictionaryWithClass:(Class)cls json:(id)json;
+ 通过一个json文件创建并返回一个字典
+ 这个方法是安全的
+ 参数cls  字典中value的对象class
+ 参数json 一个json的字典是"NSDictionary","NSStirng"或"NSData"的
+ 列子: {"user1":{"name","Mary"}, "user2": {name:"Joe”}}，以字符串user1或user2为key，value为一个cls对象，传进来的Class中的name为变量，name值为Mary或Joe
+ 
+ 
+ 
+ + (nullable NSDictionary<NSString *, id> *)modelCustomPropertyMapper;
+ 如果JSON/Dictionary的key并不能匹配model的property name，实现这个方法并返回额外的元素，会通过变量返回一个定制元素
+ 实例：
+ json:
+ {
+ "n":"Harry Pottery",
+ "p": 256,
+ "ext" : {
+ "desc" : "A book written by J.K.Rowling."
+ },
+ "ID" : 100010
+ }
+ 
+ model:
+ @interface ADBook : NSObject
+ @property NSString *name;
+ @property NSInteger page;
+ @property NSString *desc;
+ @property NSString *bookID;
+ @end
+ 
+ @implementation ADBook
+ + (NSDictionary *)modelCustomPropertyMapper {
+ return @{@"name"  : @"n",
+ @"page"  : @"p",
+ @"desc"  : @"ext.desc",
+ @"bookID": @[@"id", @"ID", @"book_id"]};
+ }
+ 其中name对应Json中的n，page对应数字p，desc对应ext的数组字典中desc的值，bookID对应三个值：id、ID、book_id
+ 
+ 
+ 
+ + (nullable NSDictionary<NSString *, id> *)modelContainerPropertyGenericClass;
+ 返回一个对象元素，如果这个变量是一个对象容器，列如NSArray/NSSet/NSDictionary
+ 实现这个方法并返回一个属性->类元素,告知哪一个对象将被添加到这个array /set /dictionary
+ Example:
+ @class ADShadow, ADBorder, ADAttachment;
+ 
+ @interface ADAttributes
+ @property NSString *name;
+ @property NSArray *shadows;
+ @property NSSet *borders;
+ @property NSDictionary *attachments;
+ @end
+ 
+ @implementation ADAttributes
+ + (NSDictionary *)modelContainerPropertyGenericClass {
+ return @{@"shadows" : [ADShadow class],
+ @"borders" : ADBorder.class,
+ @"attachments" : @"ADAttachment" };
+ }
+ @end
+ 
+ 
+ + (nullable Class)modelCustomClassForDictionary:(NSDictionary *)dictionary;
+ 如果你需要在json->object的改变时创建关于不同类的对象
+ 使用这个方法基于dictionary data去改变custom class
+ 重写时通过判断哪个key对应的有Value值,就返回一个自己需求的类。
+ Example:
+ @class ADCircle, ADRectangle, ADLine;
+ @implementation ADShape
+ 
+ + (Class)modelCustomClassForDictionary:(NSDictionary*)dictionary {
+ if (dictionary[@"radius"] != nil) {
+ return [ADCircle class];
+ } else if (dictionary[@"width"] != nil) {
+ return [ADRectangle class];
+ } else if (dictionary[@"y2"] != nil) {
+ return [ADLine class];
+ } else {
+ return [self class];
+ }
+ }
+ 
+ 
+ + (nullable NSArray<NSString *> *)modelPropertyBlacklist;
+ 在model变换时所有在黑名单里的property都将被忽视
+ 返回 一个关于property name的数组
+ 
+ 
+ 
+ + (nullable NSArray<NSString *> *)modelPropertyWhitelist;
+ 如果一个property不在白名单，在model转变时它将被忽视
+ 返回nil忽视这方面
+ 
+ 
+ 
+ 
+ - (NSDictionary *)modelCustomWillTransformFromDictionary:(NSDictionary *)dic;
+ 描述 如果model实现了这个方法,它将被调用在"+modelWithJson:","+modelWithDictionary:","-modelSetWithJSON:"and"-modelSetWithDictionary:"之前
+ 如果方法返回为nil,转换过程中将忽视这个model
+ 
+ 
+ - (BOOL)modelCustomTransformFromDictionary:(NSDictionary *)dic;
+ 如果model实现了这个方法,它将被调用在"+modelWithJSON:","+modelWithDictionary","-modelSetWithJSON:" and "-modelSetWithDictionary:"结束。如果这个model是有效的,返回YES 或返回NO忽视这个model。
+ 
+ 
+ - (BOOL)modelCustomTransformToDictionary:(NSMutableDictionary *)dic;
+ 如果这个model实现了这个方法,它将被调用在"-modelToJSONObject"和"-modelToJSONStrign"结束
+ 如果这个方法返回NO,这个转换过程将忽视这个json dictionary
+ 
+ 
+ */
 
 
 

@@ -38,7 +38,10 @@ ADEncodingType ADEncodingGetType(const char *typeEncoding){
     
     //以死循环的方式遍历字符数组type
     while (prefix) {
-        
+        //      属性描述为 T@"NSString",&,V_str 的 str
+        //        属性的描述：T 值：@"NSString"
+//        属性的描述：& 值：
+//        属性的描述：V 值：_str
         //从字符数组type的首地址开始一个一个取出内部的字符
         switch (*type) {
                 
@@ -210,7 +213,7 @@ ADEncodingType ADEncodingGetType(const char *typeEncoding){
 //    通过接收的一个方法返回一个string类型描述(OC实现的编码类型)
 //    @return A C string. The string may be \c NULL.
 //    返回一个C string . 这个string 可能是 \c NULL
-//    获取描述方法参数和返回值类型
+//    获取方法的参数和返回值类型
     const char *typeEncoding = method_getTypeEncoding(method);
     if (typeEncoding) {
         _typeEncoding = [NSString stringWithUTF8String:typeEncoding];
@@ -238,10 +241,12 @@ ADEncodingType ADEncodingGetType(const char *typeEncoding){
 //       通过关于一个方法的一个单独的type参数返回一个string描述(获取方法的指定位置参数的类型字符串)
 //       获取方法的指定位置参数的类型字符串
             char *argumentType = method_copyArgumentType(method, i);
+            //有值就通过UTF-8编码后获取否则为nil
             NSString *type = argumentType ? [NSString stringWithUTF8String:argumentType] : nil;
             //argumentTypes能否添加type 如果能则添加type,否则添加@""
             //保证绝对有个对象被添加到可变数组
             [argumentTypes addObject:type ? type: @""];
+            //如果argumentType有值就释放，加个判断防止释放的是野指针
             if (argumentType) free(argumentType);
         }
         _argumentTypeEncodings = argumentTypes;
@@ -256,7 +261,7 @@ ADEncodingType ADEncodingGetType(const char *typeEncoding){
  property 信息
  
  Creates and returns a property info object.
- 创建并返回一个对象的property信息
+ 创建并返回一个property的对象信息
  
  @param property property opaque struct
  参数 property 不透明结构体property
@@ -294,7 +299,7 @@ ADEncodingType ADEncodingGetType(const char *typeEncoding){
          属性描述为 T@"NSString",&,V_str 的 str
          属性的描述：T 值：@"NSString"
          属性的描述：& 值：
-         属性的描述：V 值：_str2
+         属性的描述：V 值：_str
          
          G为getter方法，S为setter方法
          D为Dynamic(@dynamic ,告诉编译器不自动生成属性的getter、setter方法)
@@ -431,16 +436,25 @@ ADEncodingType ADEncodingGetType(const char *typeEncoding){
     if (!cls)   return  nil;
     
     self  = [super init];
+    //自身
     _cls = cls;
+    //父类
     _superCls = class_getSuperclass(cls);
+    //是否为元类
     _isMeta = class_isMetaClass(cls);
+    //不是元类
     if (!_isMeta) {
+        //保存元类
         _metaCls = objc_getMetaClass(class_getName(cls));
     }
+    //保存类名
     _name = NSStringFromClass(cls);
+    //每次获取每次更新
     [self _update];
-    
+    //获取父类信息,直至父类不存在.
+    //每次获取都会更新存储的数据
     _superClassInfo = [self.class classInfoWithClass:_superCls];
+    
     return self;
 }
 
@@ -454,9 +468,9 @@ ADEncodingType ADEncodingGetType(const char *typeEncoding){
     Class cls = self.cls;
     unsigned int methodCount = 0;
 //    Describes the instance methods implemented by a class.
-//    描述这个对象方法的实现通过一个class
+//    描述这个列子的方法实现通过一个class
 //    @return An array of pointers of type Method describing the instance methods
-//    返回关于对象方法描述的一个数组指针
+//    返回关于列子的方法描述的一个数组指针
 //    数组长度保存在methodCount地址里
     Method *methods = class_copyMethodList(cls, &methodCount);
     
@@ -548,8 +562,11 @@ ADEncodingType ADEncodingGetType(const char *typeEncoding){
 +(instancetype)classInfoWithClass:(Class)cls{
     if (!cls) return nil;
     //   NSMutableDictionary的底层，直接使用CFMutableDictionaryRef可提高效率
+    //存放对象(NSArray也是一个对象，详情看下方)
     static CFMutableDictionaryRef classCache;
+    //存放元类
     static CFMutableDictionaryRef metaCache;
+    
     static dispatch_once_t onceToken;
      // 为了线程安全 同步信号量
     static dispatch_semaphore_t lock;

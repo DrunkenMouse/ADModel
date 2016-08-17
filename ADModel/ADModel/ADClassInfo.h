@@ -118,12 +118,12 @@ ADEncodingType ADEncodingGetType(const char *typeEncoding);
  */
 @interface ADClassMethodInfo : NSObject
 @property (nonatomic, assign, readonly) Method method;                 ///< method opaque struct 不透明结构体方法
-@property (nonatomic, strong, readonly) NSString *name;                ///< method name 方法名
+@property (nonatomic, strong, readonly) NSString *name;                ///< method name 方法的选择子名
 @property (nonatomic, assign, readonly) SEL sel;                       ///< method's selector 方法sel
 @property (nonatomic, assign, readonly) IMP imp;                       ///< method's implementation 方法实现
-@property (nonatomic, strong, readonly) NSString *typeEncoding;        ///< method's parameter and return types,方法的参数并返回types
-@property (nonatomic, strong, readonly) NSString *returnTypeEncoding;  ///< return value's type,返回的type值
-@property (nullable, nonatomic, strong, readonly) NSArray<NSString *> *argumentTypeEncodings;   ///< array of arguments' type, type的主题数组，获取的方法的参数类型数组
+@property (nonatomic, strong, readonly) NSString *typeEncoding;        ///< method's parameter and return types,方法参数和返回值类型
+@property (nonatomic, strong, readonly) NSString *returnTypeEncoding;  ///< return value's type,方法的返回值类型的字符串
+@property (nullable, nonatomic, strong, readonly) NSArray<NSString *> *argumentTypeEncodings;   ///< array of arguments' type, type的主题数组，方法的参数类型数组
 /**
  Creates and returns a method info object.
  
@@ -143,12 +143,12 @@ ADEncodingType ADEncodingGetType(const char *typeEncoding);
  */
 @interface ADClassPropertyInfo : NSObject
 @property (nonatomic, assign, readonly) objc_property_t property;   ///< property's opaque struct ,property的不透明结构体
-@property (nonatomic, strong, readonly) NSString *name;             ///< property's name
-@property (nonatomic, assign, readonly) ADEncodingType type;        ///< property's type
+@property (nonatomic, strong, readonly) NSString *name;             ///< property's name ,property的名称
+@property (nonatomic, assign, readonly) ADEncodingType type;        ///< property's type，通过属性特性列表获取，包括强弱指针、原子性和getter、setter
 @property (nonatomic, strong, readonly) NSString *typeEncoding;     ///< property's encoding value
 @property (nonatomic, strong, readonly) NSString *ivarName;         ///< property's ivar name
-@property (nullable, nonatomic, assign, readonly) Class cls;        ///< may be nil   ,可以是nil
-@property (nullable, nonatomic, strong, readonly) NSArray<NSString *>       *protocols; ///< may nil
+@property (nullable, nonatomic, assign, readonly) Class cls;        ///< may be nil   ,可以是nil,如果属性是个对象，则保存对象的isa指针
+@property (nullable, nonatomic, strong, readonly) NSArray<NSString *>       *protocols; ///< may nil,保存对象后面"\<"到">"中的所有信息
 @property (nonatomic, assign, readonly) SEL getter;                 ///< getter (nonnull)
 @property (nonatomic, assign, readonly) SEL setter;                 ///< setter (nonnull)
 /**
@@ -169,14 +169,15 @@ ADEncodingType ADEncodingGetType(const char *typeEncoding);
  一个class的class 信息
  */
 @interface ADClassInfo : NSObject
-@property (nonatomic, assign, readonly) Class cls;  ///< class object
-@property (nullable, nonatomic, assign, readonly) Class superCls;   ///< super class object
-@property (nullable, nonatomic, assign, readonly) Class metaCls;    ///< class's meta class object ,class的class元素对象
-@property (nonatomic, readonly) BOOL isMeta;                        ///< whether this class is meta class  ,这个元素是否是Class
-@property (nonatomic, strong, readonly) NSString *name;    ///< class name
+
+@property (nonatomic, assign, readonly) Class cls;  ///< class object，自身
+@property (nullable, nonatomic, assign, readonly) Class superCls;   ///< super class object，父类
+@property (nullable, nonatomic, assign, readonly) Class metaCls;    ///< class's meta class object , 不是元类元类则保存元类
+@property (nonatomic, readonly) BOOL isMeta;                        ///< whether this class is meta class  ,这个元素是否为元类
+@property (nonatomic, strong, readonly) NSString *name;    ///< class name，保存类名
 @property (nullable, nonatomic, strong, readonly) ADClassInfo *superClassInfo; ///< super class's class info ,父类的class信息
 @property (nullable, nonatomic, strong, readonly) NSDictionary<NSString *,ADClassInfo *> *ivarInfos;     ///< ivars
-@property (nullable, nonatomic, strong, readonly) NSDictionary<NSString *,ADClassMethodInfo *> *methodInfos;    ///< methods
+@property (nullable, nonatomic, strong, readonly) NSDictionary<NSString *,ADClassMethodInfo *> *methodInfos;    ///< methods，保存例子中所有方法信息，以方法的选择子名为Key，方法信息(ADClassMethodInfo)为value
 @property (nullable, nonatomic, strong, readonly) NSDictionary<NSString *,ADClassPropertyInfo *> *propertyInfos;     ///< properties
 
 /**

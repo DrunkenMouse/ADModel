@@ -48,7 +48,7 @@ typedef NS_ENUM(NSUInteger, ADEncodingNSType) {
  
  isSubclassOfClass: 从自身开始，它沿着类的层次结构，在每个等级与目标类逐一进行比较。如果发现一个相匹配的对象，返回YES。如果它从类的层次结构自顶向下没有发现符合的对象，返回NO
  
- 方法意思为：静态的force_inline修饰的返回值为YYEncodingNSType的方法YYClassGetNSType其所需参数为(Class cls)
+ 方法意思为：静态的force_inline修饰的返回值为ADEncodingNSType的方法ADClassGetNSType其所需参数为(Class cls)
  */
 static force_inline ADEncodingNSType ADClassGetNSType(Class cls) {
     if (!cls) return ADEncodingTypeNSUnknown;
@@ -1350,9 +1350,12 @@ static void ModelSetWithDictionaryFunction(const void *_key, const void *_value,
 //    作者回答：在 ARC 条件下，默认声明的对象是 strong 类型的，赋值时有可能会产生 retain/release 调用，如果一个变量在其生命周期内不会被释放，则使用 unsafe_unretained 会节省很大的开销。
 //    网友提问： 楼主的偏好是说用unsafe_unretained来代替weak的使用，使用后自行解决野指针的问题吗？
 //    作者回答：关于 unsafe_unretained 这个属性，我只提到需要在性能优化时才需要尝试使用，平时开发自然是不推荐用的。
+    
+    //结构体context中的void函数modelMeta通过桥接转换成_ADModelMeta
     __unsafe_unretained _ADModelMeta *meta = (__bridge _ADModelMeta *)(context -> modelMeta);
     __unsafe_unretained _ADModelPropertyMeta *propertyMeta = [meta->_mapper objectForKey:(__bridge id)(_key)];
     __unsafe_unretained id model = (__bridge id)(context->model);
+    
     while (propertyMeta) {
         if (propertyMeta -> _setter) {
             //自定义方法ModelSetValueForProperty
@@ -1419,7 +1422,7 @@ static id ModelToJSONObjectRecursive(NSObject *model){
     if ([model isKindOfClass:[NSNumber class]]) return model;
     
     if ([model isKindOfClass:[NSDictionary class]]) {
-//      isValidJSONObject  判断是否能转为Json数据
+//      isValidJSONObject  判断是否为Json数据
         if ([NSJSONSerialization isValidJSONObject:model]) return model;
         
         NSMutableDictionary *newDic = [NSMutableDictionary new];
@@ -1800,8 +1803,9 @@ static NSString *ModelDescription(NSObject *model) {
     if (![dictionary isKindOfClass:[NSDictionary class]]) return nil;
     
     Class cls = [self class];
-    //_ADModelMeta保存调用者class信息
+    //_ADModelMeta保存class信息
     _ADModelMeta *modelMeta = [_ADModelMeta metaWithClass:cls];
+    
     
     if (modelMeta->_hasCustomClassFromDictionary) {
         cls = [cls modelCustomClassForDictionary:dictionary] ?: cls;
@@ -1838,6 +1842,8 @@ static NSString *ModelDescription(NSObject *model) {
     if (![dic isKindOfClass:[NSDictionary class]]) return NO;
     
     _ADModelMeta *modelMeta = [_ADModelMeta metaWithClass:object_getClass(self)];
+    
+    
     if (modelMeta -> _keyMappedCount == 0) return NO;
     
     if (modelMeta->_hasCustomWillTransformFromDictionary) {
@@ -1949,6 +1955,7 @@ static NSString *ModelDescription(NSObject *model) {
     if (modelMeta->_nsType) return [self copy];
     
     NSObject *one = [self.class new];
+    
     for (_ADModelPropertyMeta *propertyMeta in modelMeta->_allPropertyMetas) {
         
         if (!propertyMeta->_getter || !propertyMeta->_setter) continue;
@@ -1964,6 +1971,7 @@ static NSString *ModelDescription(NSObject *model) {
                 case ADEncodingTypeInt8:
                 case ADEncodingTypeUInt8:{
                     uint8_t num = ((BOOL (*)(id,SEL))(void *)objc_msgSend)((id)self,propertyMeta->_getter);
+                    ((void (*)(id, SEL, uint8_t))(void *) objc_msgSend)((id)one, propertyMeta->_setter, num);
                 }break;
                 case ADEncodingTypeInt16:
                 case ADEncodingTypeUInt16: {
@@ -2046,10 +2054,7 @@ static NSString *ModelDescription(NSObject *model) {
         [((id<NSCoding>)self)encodeWithCoder:aCoder];
         return;
     }
-    //
-    //    for (_YYModelPropertyMeta *propertyMeta in modelMeta->_allPropertyMetas) {
-    //        if (!propertyMeta->_getter) return;
-    //
+
    
     for (_ADModelPropertyMeta *propertyMeta in modelMeta->_allPropertyMetas) {
         if (!propertyMeta->_getter) return;
@@ -2109,16 +2114,7 @@ static NSString *ModelDescription(NSObject *model) {
     if (self == (id)kCFNull) return  self;
     _ADModelMeta *modelMeta = [_ADModelMeta metaWithClass:self.class];
     if (modelMeta->_nsType) return self;
-    //    for (_YYModelPropertyMeta *propertyMeta in modelMeta->_allPropertyMetas) {
-    //        if (!propertyMeta->_setter) continue;
-    //
-    //        if (propertyMeta->_isCNumber) {
-    //            NSNumber *value = [aDecoder decodeObjectForKey:propertyMeta->_name];
-    //            if ([value isKindOfClass:[NSNumber class]]) {
-    //                ModelSetNumberToProperty(self, value, propertyMeta);
-    //                [value class];
-    //            }
-    //        }
+   
     for (_ADModelPropertyMeta *propertyMeta in modelMeta->_allPropertyMetas) {
         if (!propertyMeta->_setter) continue;
         if (propertyMeta->_isCNumber) {

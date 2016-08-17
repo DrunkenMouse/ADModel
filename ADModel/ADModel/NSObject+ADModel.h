@@ -458,6 +458,7 @@ NS_ASSUME_NONNULL_BEGIN
  @return Class to create from this dictionary, `nil` to use current class.
  返回 通过字典创建的class,nil指使用当前class
  
+ 重写时通过判断哪个key对应的有Value值,就返回一个自己需求的类
  */
 + (nullable Class)modelCustomClassForDictionary:(NSDictionary *)dictionary;
 
